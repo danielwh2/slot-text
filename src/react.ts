@@ -4,6 +4,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
   type HTMLAttributes,
 } from "react";
 import {
@@ -15,7 +16,7 @@ import {
 
 export interface SlotTextProps extends Omit<
   HTMLAttributes<HTMLSpanElement>,
-  "children"
+  "children" | "dangerouslySetInnerHTML"
 > {
   text: string;
   options?: SlotOptions;
@@ -27,6 +28,7 @@ export const SlotText = forwardRef<HTMLSpanElement, SlotTextProps>(
     const mountedRef = useRef(false);
     const firstTextEffectRef = useRef(true);
     const optionsRef = useRef<SlotOptions | undefined>(options);
+    const [initialText] = useState(text);
 
     useImperativeHandle(forwardedRef, () => elementRef.current!, []);
 
@@ -59,11 +61,15 @@ export const SlotText = forwardRef<HTMLSpanElement, SlotTextProps>(
       animateSlotText(element, text, optionsRef.current);
     }, [text]);
 
-    return createElement("span", {
-      ...props,
-      "aria-label": ariaLabel ?? text,
-      ref: elementRef,
-    });
+    return createElement(
+      "span",
+      {
+        ...props,
+        "aria-label": ariaLabel ?? text,
+        ref: elementRef,
+      },
+      initialText,
+    );
   },
 );
 
