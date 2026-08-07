@@ -1,6 +1,7 @@
 export const TUNING = {
   animation: {
     direction: "down",
+    rollBy: "character",
     stagger: 45,
     duration: 300,
     exitOffset: 50,

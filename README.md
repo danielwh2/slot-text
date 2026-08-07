@@ -79,6 +79,11 @@ const label = slotText(element, "Copy", options);
 
 label.set("Copied");                  // permanent change
 label.set("Copy", { direction: "down" });
+label.set("Changes saved", {
+  rollBy: "word",
+  duration: 180,
+  stagger: 25,
+});                                   // faster, word-by-word roll
 label.flash("Copied");                // temporary — rolls back after 1.4s
 label.destroy();
 ```
@@ -154,8 +159,9 @@ const [label, setLabel] = createSignal("Copy");
 | Option | Default | Description |
 | --- | --- | --- |
 | `direction` | `"down"` | Roll direction: `"up"` or `"down"` |
-| `stagger` | `45` | Delay between characters (ms) |
-| `duration` | `300` | Per-character animation time (ms) |
+| `rollBy` | `"character"` | Roll by `"character"` or `"word"` |
+| `stagger` | `45` | Delay between segments (ms); lower is faster |
+| `duration` | `300` | Per-segment animation time (ms); lower is faster |
 | `exitOffset` | `50` | Delay before the old character exits (ms) |
 | `easing` | springy bezier | CSS easing function |
 | `bounce` | `0.6` | Overshoot amount |
@@ -172,17 +178,17 @@ const [label, setLabel] = createSignal("Copy");
 
 ### 🌈 `chromatic()`
 
-Built-in rainbow color helper — pass it as `color` for a per-character hue sweep.
+Built-in rainbow color helper — pass it as `color` for a per-segment hue sweep.
 
 ## 🔤 Font support
 
-Each character animates in its own measured cell using your element's exact
-font, so widths are always correct.
+By default, each user-perceived character animates in its own measured cell.
+Set `rollBy: "word"` to keep each word together and roll it as one unit.
 
 ✅ **Great with:** monospace fonts, proportional Latin / Cyrillic / Greek
 (Geist, Inter, SF, …), italics, glyphs with overhang.
 
-⚠️ **Tradeoffs** (inherent to any per-character slot animation):
+⚠️ **Character mode tradeoffs:**
 
 - Kerning is lost — pairs like `AV` sit slightly looser (invisible at label sizes).
 - Ligatures won't form (`fi`, `fl`, coding ligatures).
@@ -190,6 +196,9 @@ font, so widths are always correct.
 - Grapheme clusters such as combining marks and ZWJ emoji stay together when
   `Intl.Segmenter` is available; older browsers fall back to Unicode code points.
 - Very tall display fonts may clip at the roll mask (`line-height: 1.3`).
+
+Word mode preserves kerning, ligatures and joined-script shaping inside each
+word, but the whole word rolls together.
 
 **In short:** ideal for short labels, numbers, statuses and commands — in
 essentially any font you'd use for those.

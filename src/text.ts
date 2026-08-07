@@ -1,13 +1,21 @@
 const NBSP = "\u00A0";
 
-const graphemeSegmenter = Intl.Segmenter
-  ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+export type RollBy = "character" | "word";
+
+const segmenters = Intl.Segmenter
+  ? {
+      character: new Intl.Segmenter(undefined, { granularity: "grapheme" }),
+      word: new Intl.Segmenter(undefined, { granularity: "word" }),
+    }
   : undefined;
 
-/** Split text into user-perceived characters, with code-point fallback. */
-export function segmentTextIntoGraphemes(text: string): string[] {
-  if (!graphemeSegmenter) return Array.from(text);
-  return Array.from(graphemeSegmenter.segment(text), ({ segment }) => segment);
+/** Split text into roll units, with dependency-free fallbacks. */
+export function segmentText(text: string, rollBy: RollBy): string[] {
+  if (segmenters) {
+    return Array.from(segmenters[rollBy].segment(text), ({ segment }) => segment);
+  }
+
+  return rollBy === "word" ? (text.match(/\s+|\S+/g) ?? []) : Array.from(text);
 }
 
 /** Preserve regular spaces inside individually measured glyph cells. */

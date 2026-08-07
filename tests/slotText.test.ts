@@ -107,6 +107,43 @@ describe("segmentation", () => {
     expect(el.querySelectorAll(".char-slot")).toHaveLength(1);
     expect(readText()).toBe(target);
   });
+
+  it("rolls words as single units when rollBy is word", () => {
+    const label = slotText(el, "Ship faster", { rollBy: "word" });
+    expect(
+      Array.from(el.querySelectorAll<HTMLElement>(".char-slot")).map(
+        (slot) => slot.dataset.char,
+      ),
+    ).toEqual(["Ship", " ", "faster"]);
+
+    label.set("Build faster");
+
+    const slots = el.querySelectorAll(".char-slot");
+    expect(slots[0].querySelectorAll(".char-face")).toHaveLength(2);
+    expect(slots[2].querySelectorAll(".char-face")).toHaveLength(1);
+
+    label.set("Move faster");
+    expect(el.querySelectorAll(".char-slot")).toHaveLength(3);
+    vi.runAllTimers();
+    expect(readText()).toBe("Move faster");
+  });
+
+  it("can switch an existing label from character rolls to word rolls", () => {
+    const label = slotText(el, "Ship now");
+
+    label.set("Build now", { rollBy: "word" });
+
+    expect(el.querySelectorAll(".char-slot")).toHaveLength(3);
+    vi.runAllTimers();
+    expect(readText()).toBe("Build now");
+  });
+
+  it("uses word slots through the low-level animation API", () => {
+    animateSlotText(el, "Ship faster", { rollBy: "word" });
+
+    expect(el.querySelectorAll(".char-slot")).toHaveLength(3);
+    expect(readText()).toBe("Ship faster");
+  });
 });
 
 describe("set()", () => {
@@ -199,10 +236,11 @@ describe("buildSlotText()", () => {
     const label = slotText(el, "Copy");
     label.set("Animating");
 
-    buildSlotText(el, "Manual");
+    buildSlotText(el, "Manual mode", { rollBy: "word" });
     vi.runAllTimers();
 
-    expect(readText()).toBe("Manual");
+    expect(el.querySelectorAll(".char-slot")).toHaveLength(3);
+    expect(readText()).toBe("Manual mode");
   });
 });
 

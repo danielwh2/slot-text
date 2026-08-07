@@ -1,7 +1,8 @@
 import { TUNING } from "./constants.js";
 import {
   getVisibleSegmentText,
-  segmentTextIntoGraphemes,
+  segmentText,
+  type RollBy,
 } from "./text.js";
 import {
   calculateGlyphTiming,
@@ -54,10 +55,14 @@ function createCharacterSlot(segment: string) {
 }
 
 /** Render slot markup without touching animation lifecycle state. */
-export function renderCharacterSlots(container: HTMLElement, text: string) {
+export function renderCharacterSlots(
+  container: HTMLElement,
+  text: string,
+  rollBy: RollBy = "character",
+) {
   container.classList.add("slot-text");
   container.replaceChildren(
-    ...segmentTextIntoGraphemes(text).map(createCharacterSlot),
+    ...segmentText(text, rollBy).map(createCharacterSlot),
   );
 }
 

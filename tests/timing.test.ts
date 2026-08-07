@@ -15,6 +15,7 @@ describe("resolveAnimationOptions()", () => {
 
     expect(options.duration).toBe(300);
     expect(options.interrupt).toBe(true);
+    expect(options.rollBy).toBe("character");
     expect(options.stagger).toBe(45);
   });
 });

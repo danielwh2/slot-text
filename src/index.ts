@@ -6,6 +6,7 @@ export {
   type ChromaticOptions,
   type SlotOptions,
 } from "./slotText.js";
+export type { RollBy } from "./text.js";
 
 import { TUNING } from "./constants.js";
 import {
@@ -56,7 +57,11 @@ export function slotText(
   let currentValue = initialText;
   let revertTimerId: number | undefined;
   let restingText: string | undefined;
-  renderTextWithCssFallback(element, initialText);
+  renderTextWithCssFallback(
+    element,
+    initialText,
+    defaultOptions.rollBy ?? "character",
+  );
   const animateWithoutInterrupt = (text: string, overrides?: SlotOptions) =>
     animateSlotText(element, text, {
       ...defaultOptions,

@@ -11,30 +11,32 @@ import {
   renderCharacterSlots,
   scheduleSlotAnimation,
 } from "./dom.js";
-import { segmentTextIntoGraphemes } from "./text.js";
+import { segmentText, type RollBy } from "./text.js";
 import { resolveAnimationOptions } from "./timing.js";
 
 const { chromatic: chromaticTuning, lifecycle } = TUNING;
 
 /**
- * Browser-only text-roll animation. Each grapheme owns one clipped slot; the
- * previous face rolls out while the next face rolls in.
+ * Browser-only text-roll animation. Each character or word owns one clipped
+ * slot; the previous face rolls out while the next face rolls in.
  */
 /** Options shared by the low-level animation and all framework adapters. */
 export interface SlotOptions {
   /** "down" rolls glyphs downward (enter from top); "up" rolls upward. */
   direction?: "up" | "down";
-  /** Per-character stagger in ms (default 45). */
+  /** Roll each user-perceived character or each word. Default "character". */
+  rollBy?: RollBy;
+  /** Per-segment stagger in ms (default 45). */
   stagger?: number;
-  /** Slide duration per character in ms (default 300). */
+  /** Slide duration per segment in ms (default 300). */
   duration?: number;
   /** How long the incoming glyph trails the outgoing one, in ms (default 50). */
   exitOffset?: number;
   /** Easing — defaults to a springy, overshooting "back" curve. */
   easing?: string;
   /**
-   * Per-letter personality: 0 makes every glyph move identically; 1 adds the
-   * strongest timing variation and tilt. Default 0.6.
+   * Per-segment personality: 0 makes every segment move identically; 1 adds
+   * the strongest timing variation and tilt. Default 0.6.
    */
   bounce?: number;
   /**
@@ -45,7 +47,7 @@ export interface SlotOptions {
   /** Tint fade duration in ms (default 280). */
   colorFade?: number;
   /**
-   * Keep graphemes that are identical at the same index static. Disable this
+   * Keep segments that are identical at the same index static. Disable this
    * when differently sized strings are not positionally aligned.
    */
   skipUnchanged?: boolean;
@@ -59,7 +61,7 @@ export interface SlotOptions {
 export interface ChromaticOptions {
   /** Starting hue in degrees. Default 0. */
   from?: number;
-  /** Hue distance from first to last grapheme. Default 320 degrees. */
+  /** Hue distance from first to last roll segment. Default 320 degrees. */
   spread?: number;
   /** HSL saturation percentage. Default 92. */
   saturation?: number;
@@ -67,7 +69,7 @@ export interface ChromaticOptions {
   lightness?: number;
 }
 
-/** Build a color function that sweeps a hue range across the text. */
+/** Build a color function that sweeps a hue range across the roll segments. */
 export function chromatic({
   from = chromaticTuning.hueStartDegrees,
   spread = chromaticTuning.hueSpreadDegrees,
@@ -87,6 +89,7 @@ export function chromatic({
 interface AnimationState {
   timerIds: number[];
   targetText: string;
+  rollBy: RollBy;
   pendingAnimation?: { text: string; options: SlotOptions };
 }
 
@@ -105,24 +108,33 @@ function cancelRunningAnimation(container: HTMLElement) {
 export function renderTextWithCssFallback(
   container: HTMLElement,
   text: string,
+  rollBy: RollBy = "character",
 ) {
   initializedContainers.add(container);
-  if (canRenderSlotLayout()) renderCharacterSlots(container, text);
+  if (canRenderSlotLayout()) renderCharacterSlots(container, text, rollBy);
   else renderPlainText(container, text);
 }
 
 function finishRunningAnimationImmediately(container: HTMLElement) {
   const animationState = cancelRunningAnimation(container);
   if (animationState) {
-    renderTextWithCssFallback(container, animationState.targetText);
+    renderTextWithCssFallback(
+      container,
+      animationState.targetText,
+      animationState.rollBy,
+    );
   }
 }
 
 /** Build slot markup immediately and cancel any animation that owns it. */
-export function buildSlotText(container: HTMLElement, text: string) {
+export function buildSlotText(
+  container: HTMLElement,
+  text: string,
+  { rollBy = "character" }: Pick<SlotOptions, "rollBy"> = {},
+) {
   cancelRunningAnimation(container);
   initializedContainers.add(container);
-  renderCharacterSlots(container, text);
+  renderCharacterSlots(container, text, rollBy);
 }
 
 function scheduleAnimationTask(
@@ -155,7 +167,7 @@ export function animateSlotText(
   let characterSlots = getCharacterSlots(container);
   if (characterSlots.length === 0) {
     if (!initializedContainers.has(container)) {
-      renderTextWithCssFallback(container, targetText);
+      renderTextWithCssFallback(container, targetText, resolvedOptions.rollBy);
       return;
     }
 
@@ -164,7 +176,11 @@ export function animateSlotText(
       return;
     }
 
-    renderCharacterSlots(container, container.textContent ?? "");
+    renderCharacterSlots(
+      container,
+      container.textContent ?? "",
+      resolvedOptions.rollBy,
+    );
     characterSlots = getCharacterSlots(container);
   }
 
@@ -174,8 +190,24 @@ export function animateSlotText(
     return;
   }
 
-  const currentSegments = characterSlots.map((slot) => slot.dataset.char ?? "");
-  const targetSegments = segmentTextIntoGraphemes(targetText);
+  let currentSegments = characterSlots.map((slot) => slot.dataset.char ?? "");
+  const currentText = currentSegments.join("");
+  const regroupedCurrentSegments = segmentText(
+    currentText,
+    resolvedOptions.rollBy,
+  );
+  if (
+    currentSegments.length !== regroupedCurrentSegments.length ||
+    currentSegments.some(
+      (segment, index) => segment !== regroupedCurrentSegments[index],
+    )
+  ) {
+    renderCharacterSlots(container, currentText, resolvedOptions.rollBy);
+    characterSlots = getCharacterSlots(container);
+    currentSegments = regroupedCurrentSegments;
+  }
+
+  const targetSegments = segmentText(targetText, resolvedOptions.rollBy);
   if (
     !resolvedOptions.interrupt &&
     currentSegments.length === targetSegments.length &&
@@ -200,11 +232,15 @@ export function animateSlotText(
   );
 
   if (changedSlotMeasurements.length === 0) {
-    renderCharacterSlots(container, targetText);
+    renderCharacterSlots(container, targetText, resolvedOptions.rollBy);
     return;
   }
 
-  const animationState: AnimationState = { timerIds: [], targetText };
+  const animationState: AnimationState = {
+    timerIds: [],
+    targetText,
+    rollBy: resolvedOptions.rollBy,
+  };
   animationStates.set(container, animationState);
   const preparedSlotAnimations = changedSlotMeasurements.map((measurement) =>
     prepareSlotAnimation(
@@ -235,7 +271,7 @@ export function animateSlotText(
     if (animationStates.get(container) !== animationState) return;
     const pendingAnimation = animationState.pendingAnimation;
     animationStates.delete(container);
-    renderTextWithCssFallback(container, targetText);
+    renderTextWithCssFallback(container, targetText, resolvedOptions.rollBy);
     if (pendingAnimation) {
       animateSlotText(container, pendingAnimation.text, pendingAnimation.options);
     }

@@ -5,6 +5,7 @@ const { animation, glyph, variation, width } = TUNING;
 
 export interface ResolvedSlotOptions {
   direction: "up" | "down";
+  rollBy: "character" | "word";
   stagger: number;
   duration: number;
   exitOffset: number;
@@ -32,6 +33,7 @@ export function resolveAnimationOptions(
 ): ResolvedSlotOptions {
   return {
     direction: options.direction ?? animation.direction,
+    rollBy: options.rollBy ?? animation.rollBy,
     stagger: options.stagger ?? animation.stagger,
     duration: options.duration ?? animation.duration,
     exitOffset: options.exitOffset ?? animation.exitOffset,
